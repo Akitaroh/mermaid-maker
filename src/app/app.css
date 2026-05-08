@@ -1,0 +1,227 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.mm-app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.mm-panes {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.mm-pane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #ddd;
+  min-height: 0;
+}
+
+.mm-pane-text {
+  background: #fafafa;
+}
+
+.mm-pane-canvas {
+  background: #fff;
+  position: relative;
+}
+
+.mm-textarea {
+  flex: 1;
+  width: 100%;
+  border: none;
+  outline: none;
+  padding: 12px;
+  font-family: 'SF Mono', Menlo, monospace;
+  font-size: 14px;
+  resize: none;
+  background: transparent;
+}
+
+.mm-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-top: 1px solid #ddd;
+  background: #f5f5f5;
+}
+
+.mm-btn {
+  padding: 8px 16px;
+  border: 1px solid #888;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.mm-btn:hover {
+  background: #e8e8e8;
+}
+
+.mm-error {
+  color: #c00;
+  font-size: 13px;
+  margin-left: 12px;
+}
+
+.mm-node {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mm-canvas-toolbar {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+  font-size: 13px;
+}
+
+.mm-toolbar-label {
+  color: #666;
+  margin-right: 4px;
+}
+
+.mm-toolbar-divider {
+  display: inline-block;
+  width: 1px;
+  height: 18px;
+  background: #ddd;
+  margin: 0 6px;
+}
+
+.mm-tool-btn {
+  padding: 4px 10px;
+  border: 1px solid #888;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.mm-tool-btn:hover:not(:disabled) {
+  background: #e8e8e8;
+}
+
+.mm-tool-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.mm-selection {
+  color: #0066cc;
+  font-size: 12px;
+  margin-left: 8px;
+}
+
+.mm-help {
+  color: #888;
+  font-size: 11px;
+  margin-left: 8px;
+}
+
+.mm-label-input {
+  border: 1px solid #0066cc;
+  outline: none;
+  border-radius: 3px;
+  padding: 2px 4px;
+  text-align: center;
+  width: 60px;
+  background: white;
+}
+
+/* reactflow 選択状態のハイライト */
+.react-flow__node.selected .mm-node svg circle,
+.react-flow__node.selected .mm-node svg rect {
+  stroke: #0066cc;
+  stroke-width: 3;
+}
+
+/* シミュレーションのハイライト */
+.react-flow__node.mm-hl-running .mm-node svg circle,
+.react-flow__node.mm-hl-running .mm-node svg rect {
+  fill: #cce4ff;
+  stroke: #0066cc;
+  stroke-width: 3;
+}
+
+.react-flow__node.mm-hl-accepted .mm-node svg circle,
+.react-flow__node.mm-hl-accepted .mm-node svg rect {
+  fill: #c8f0c8;
+  stroke: #2a8a2a;
+  stroke-width: 3;
+}
+
+.react-flow__node.mm-hl-rejected .mm-node svg circle,
+.react-flow__node.mm-hl-rejected .mm-node svg rect {
+  fill: #ffd0d0;
+  stroke: #cc3333;
+  stroke-width: 3;
+}
+
+.mm-sim-toolbar {
+  background: #fafaff;
+  border-top: 1px solid #cce;
+}
+
+.mm-sim-input {
+  padding: 6px 10px;
+  border: 1px solid #888;
+  border-radius: 4px;
+  font-family: 'SF Mono', Menlo, monospace;
+  font-size: 14px;
+  width: 200px;
+}
+
+.mm-sim-status {
+  font-size: 13px;
+  margin-left: 8px;
+}
+
+.mm-sim-status-accepted {
+  color: #2a8a2a;
+  font-weight: bold;
+}
+
+.mm-sim-status-rejected {
+  color: #cc3333;
+  font-weight: bold;
+}
+
+.mm-sim-status-running {
+  color: #0066cc;
+}
+
+.mm-sample-select {
+  padding: 6px 10px;
+  border: 1px solid #888;
+  border-radius: 4px;
+  font-size: 14px;
+  background: #fff;
+}

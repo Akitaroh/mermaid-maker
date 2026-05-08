@@ -1,0 +1,41 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# build output
+dist/
+build/
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# vite cache
+.vite/
+
+# env
+.env
+.env.local
+.env.*.local
+
+# vercel
+.vercel/
+
+# coverage
+coverage/
+.nyc_output/
+
+# TypeScript build info
+tsconfig.tsbuildinfo
