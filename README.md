@@ -3,7 +3,10 @@
 > A general-purpose Mermaid editor with **bidirectional text↔GUI sync**.
 > Edit Mermaid diagrams as text or as draggable nodes — explicit-button sync between them.
 
+🚀 **[Live Demo →](https://mermaid-maker.vercel.app)**
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Live Demo](https://img.shields.io/badge/demo-vercel-black.svg)](https://mermaid-maker.vercel.app)
 
 ---
 
@@ -49,7 +52,7 @@ npm run preview   # build を確認
 
 ## 派生プロダクト
 
-- **[AutomataLab](https://github.com/akitaroh/automatalab)** — MermaidMaker を土台にした FSM 教育ツール（DFA/NFA シミュレータ付き）
+- **[AutomataLab](https://github.com/akitaroh/automatalab)** ([Live](https://automatalab-kappa.vercel.app)) — MermaidMaker を土台にした FSM 教育ツール（DFA/NFA シミュレータ付き）
 
 ## 設計メソドロジー
 
