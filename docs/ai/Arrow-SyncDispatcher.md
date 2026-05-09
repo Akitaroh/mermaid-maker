@@ -62,3 +62,21 @@ graph LR
 2. textarea は普通の `<textarea>`（Monaco は Phase 2 では入れない）
 3. Canvas は受け身で `positions` を Props で受ける
 4. ボタンクリック以外で同期しない
+
+---
+
+## Phase 5.4 統合追加
+
+- `useState<string>(text)` をやめて、`useActiveBoardText(store)` で BoardStore から購読
+- `setText(next)` は `store.upsertBoard(activeBoardId, next)` 経由
+- session 無し時は `useEffect` で default board を 1 個 seed
+- localStorage save は session 無し時のみ動作
+- `?session=xxx` モードでは `useSessionBridge` が WSClient 接続 + relay と結線
+- BoardTabs を toolbar の上に配置
+
+## Phase 8.1 polish 追加
+
+- `autoLayout()` 関数 + ✨整列 ボタン（`fillMissingPositions(graph, {})` で全ノード再配置 + edgeControls 空に）
+- WS_URL を `window.location.host` ベースに自動導出（embedded mode で同 port に自動接続）
+- `import.meta.env.VITE_MM_WS_URL` で外部 WS 上書き可能（vite dev モード用）
+- `vite-env.d.ts` を追加して `import.meta.env` の型を解決

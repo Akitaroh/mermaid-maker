@@ -85,3 +85,34 @@ SSR を使わない前提だが、引数を3つ渡しておかないと React 18
 
 特に「同一文字列 upsert で notify されない」と「setActive 同 id で notify されない」の no-op 最適化が React 不要再描画の抑制に効く。
 
+---
+
+## Phase 8.1 polish: useSyncExternalStore selector の本番バグ（実体験で発覚）
+
+### 症状
+
+App.tsx で `useBoardStore(store, (s) => ({ ... }))` のように **inline で新オブジェクトを返す selector** を渡したら、Claude Code 接続テストで「Maximum update depth exceeded」エラーで App が crash → 真っ白画面。
+
+### 原因
+
+`useSyncExternalStore` は selector の返り値を **referential equality (===)** で比較する。毎回新オブジェクトが返ると React は state 変更と誤認 → 再レンダー → 新オブジェクト → 無限ループ。
+
+### 修正
+
+`use-board-store.ts` を **narrow primitive selector に分割**:
+
+```typescript
+useBoardStoreState(store)   // 全 state（getState を直接渡すので reference 安定）
+useActiveBoardId(store)     // primitive (string | null)
+useActiveBoardText(store)   // primitive (string)
+useBoardList(store)         // useMemo で識別性確保
+```
+
+汎用な `useBoardStore<T>(store, selector)` は **削除**（誤用しやすい API は提供しない）。
+
+### 教訓
+
+- 自動テスト 167/167 全 PASS でも、**実体験で初めて出るバグがある**（RTL テストは render 1 回しかしないので selector の identity 問題を検出できない）
+- observable store の selector API は「**identity-stable な値を返す**」を契約として明示するか、narrow hook で誤用を防ぐべき
+- **設計 [[Atom-BoardStore]] にも反映済み**（Phase 9+ の汎用化時の警戒事項として）
+
