@@ -9,10 +9,14 @@
     "dev": "pnpm --filter @akitaroh/mermaid-maker-web dev",
     "build": "pnpm -r build",
     "test": "pnpm -r test",
-    "test:watch": "pnpm -r --parallel test:watch"
+    "test:watch": "pnpm -r --parallel test:watch",
+    "echo": "tsx scripts/echo-server.ts"
   },
   "devDependencies": {
-    "typescript": "^5.6.3"
+    "@types/ws": "^8.18.1",
+    "tsx": "^4.21.0",
+    "typescript": "^5.6.3",
+    "ws": "^8.20.0"
   },
   "engines": {
     "node": ">=18",
