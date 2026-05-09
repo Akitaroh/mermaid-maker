@@ -154,6 +154,17 @@ export function App() {
     setText(next);
   }
 
+  /**
+   * Re-run dagre layout on every node, discarding existing positions.
+   * Useful when the canvas gets messy after edits.
+   */
+  function autoLayout() {
+    const fresh = fillMissingPositions(graph, {});
+    setPositions(fresh);
+    // Drop edge control points so curves recompute from scratch.
+    setEdgeControls({});
+  }
+
   async function handleCopy() {
     const result = await copyToClipboard(text);
     setCopyFeedback(result.ok ? '✓ コピー済み' : '✗ コピー失敗');
@@ -211,6 +222,13 @@ export function App() {
         </button>
         <button className="mm-btn" onClick={syncGuiToText}>
           ◀ GUI → テキスト 同期
+        </button>
+        <button
+          className="mm-btn"
+          onClick={autoLayout}
+          title="dagre で全ノードを再配置"
+        >
+          ✨ 整列
         </button>
         <span className="mm-toolbar-divider" />
         <button className="mm-btn" onClick={handleCopy} title="Mermaid テキストをコピー">

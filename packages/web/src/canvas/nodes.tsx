@@ -18,31 +18,42 @@ type CustomNodeProps = {
   data: NodeData;
 };
 
+/**
+ * Place a source AND a target handle on each of the 4 sides so the user can
+ * drag-to-create from any direction, and so existing edges can snap to any side.
+ *
+ * xyflow requires unique (type, id) per handle on the same node, hence the
+ * `s-<pos>` / `t-<pos>` ids. Edges that don't pin a sourceHandle/targetHandle
+ * fall back to the closest matching handle by side.
+ */
 function HandlesAround() {
+  const sides: Array<['left' | 'right' | 'top' | 'bottom', Position]> = [
+    ['left', Position.Left],
+    ['right', Position.Right],
+    ['top', Position.Top],
+    ['bottom', Position.Bottom],
+  ];
+  const style = { background: '#888', width: 8, height: 8 };
   return (
     <>
-      <Handle
-        type="target"
-        position={Position.Left}
-        style={{ background: '#888', width: 8, height: 8 }}
-      />
-      <Handle
-        type="source"
-        position={Position.Right}
-        style={{ background: '#888', width: 8, height: 8 }}
-      />
-      <Handle
-        type="target"
-        position={Position.Top}
-        id="top"
-        style={{ background: '#888', width: 8, height: 8 }}
-      />
-      <Handle
-        type="source"
-        position={Position.Bottom}
-        id="bottom"
-        style={{ background: '#888', width: 8, height: 8 }}
-      />
+      {sides.map(([key, pos]) => (
+        <Handle
+          key={`s-${key}`}
+          type="source"
+          position={pos}
+          id={`s-${key}`}
+          style={style}
+        />
+      ))}
+      {sides.map(([key, pos]) => (
+        <Handle
+          key={`t-${key}`}
+          type="target"
+          position={pos}
+          id={`t-${key}`}
+          style={style}
+        />
+      ))}
     </>
   );
 }

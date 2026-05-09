@@ -30,9 +30,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 async function main() {
+  // Default to OS-assigned port (0) so multiple instances never conflict.
+  // The actual port is captured after listen() and used to build sessionUrl
+  // / baseSessionUrl. Pin a port via env only if you need a stable URL.
   const port = process.env.MERMAID_MCP_PORT
     ? Number(process.env.MERMAID_MCP_PORT)
-    : 7331;
+    : 0;
   const externalWebUrl = process.env.MM_WEB_URL;
 
   // Resolve embedded web root. After build, web is copied to ./web/ next to bin.js.
@@ -42,18 +45,14 @@ async function main() {
     process.env.MM_WEB_ROOT ?? path.resolve(__dirname, 'web');
   const haveEmbeddedWeb = fs.existsSync(path.join(webRoot, 'index.html'));
 
-  // Decide what URL to give to AI as the canvas base.
-  const baseSessionUrl =
-    externalWebUrl ??
-    (haveEmbeddedWeb ? `http://127.0.0.1:${port}` : `http://localhost:5173`);
-
   // ─── HTTP server (only if we'll embed web) ────────────────────────
   let httpServer: http.Server | null = null;
+  let actualPort = port;
   if (!externalWebUrl) {
     if (!haveEmbeddedWeb) {
       console.error(
         `[mermaid-mcp] WARN: embedded web not found at ${webRoot}.\n` +
-          `              Falling back to external URL ${baseSessionUrl}.\n` +
+          `              Falling back to external URL http://localhost:5173.\n` +
           `              Run \`pnpm dev\` separately, or set MM_WEB_URL.`
       );
     } else {
@@ -64,17 +63,26 @@ async function main() {
         httpServer!.once('error', reject);
         httpServer!.listen(port, '127.0.0.1');
       });
+      const addr = httpServer.address();
+      if (addr && typeof addr === 'object') actualPort = addr.port;
       console.error(
-        `[mermaid-mcp] HTTP web canvas: http://127.0.0.1:${port}`
+        `[mermaid-mcp] HTTP web canvas: http://127.0.0.1:${actualPort}`
       );
     }
   }
+
+  // Decide what URL to give to AI as the canvas base.
+  const baseSessionUrl =
+    externalWebUrl ??
+    (haveEmbeddedWeb
+      ? `http://127.0.0.1:${actualPort}`
+      : `http://localhost:5173`);
 
   // ─── WebSocket relay (attached to HTTP server if we have one) ─────
   const relay = new WSRelay(
     httpServer
       ? { httpServer }
-      : { port, host: '127.0.0.1' }
+      : { port: actualPort, host: '127.0.0.1' }
   );
   const { url: wsUrl } = await relay.start();
   console.error(`[mermaid-mcp] WSRelay:        ${wsUrl}`);
