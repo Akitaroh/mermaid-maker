@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { SAMPLES, getSample } from './samples';
-import { parseMermaid } from '../mermaid/parser';
+import { parseMermaid } from '@akitaroh/mermaid-core';
 
 describe('SAMPLES', () => {
   it('複数のサンプルがある', () => {

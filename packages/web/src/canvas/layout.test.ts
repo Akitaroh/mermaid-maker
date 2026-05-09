@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { fillMissingPositions } from './layout';
-import type { Graph } from '../types/schema';
+import type { Graph } from '@akitaroh/mermaid-core';
 
 describe('fillMissingPositions', () => {
   it('全ノードに座標が割り当てられる', () => {

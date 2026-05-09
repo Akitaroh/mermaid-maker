@@ -6,15 +6,15 @@
 import { useEffect, useState } from 'react';
 import { ReactFlowProvider } from '@xyflow/react';
 
-import { emptyGraph } from '../types/schema';
+import { emptyGraph } from '@akitaroh/mermaid-core';
 import type {
   EdgeControlMap,
   Graph,
   ParseError,
   PositionMap,
-} from '../types/schema';
-import { parseMermaid } from '../mermaid/parser';
-import { emitMermaid } from '../mermaid/emitter';
+} from '@akitaroh/mermaid-core';
+import { parseMermaid } from '@akitaroh/mermaid-core';
+import { emitMermaid } from '@akitaroh/mermaid-core';
 import { fillMissingPositions } from '../canvas/layout';
 import { Canvas } from '../canvas/canvas';
 import { copyToClipboard } from '../persistence/clipboard';

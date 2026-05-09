@@ -23,7 +23,7 @@ import type {
   Graph,
   NodeShape,
   PositionMap,
-} from '../types/schema';
+} from '@akitaroh/mermaid-core';
 import {
   addNode,
   addEdge,
@@ -32,8 +32,8 @@ import {
   removeNode,
   removeEdge,
   toggleAcceptState,
-} from '../graph/graph-ops';
-import { computeEdgeOffsets } from '../edge-router/edge-router';
+} from '@akitaroh/mermaid-core';
+import { computeEdgeOffsets } from '@akitaroh/mermaid-core';
 import { nodeTypes } from './nodes';
 import { edgeTypes } from './edges';
 

@@ -11,7 +11,7 @@ import {
 } from '@xyflow/react';
 import type { EdgeProps } from '@xyflow/react';
 
-import type { EdgeShape } from '../types/schema';
+import type { EdgeShape } from '@akitaroh/mermaid-core';
 
 export type EdgeData = {
   label?: string;

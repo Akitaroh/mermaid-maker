@@ -5,7 +5,7 @@
  */
 
 import dagre from 'dagre';
-import type { Graph as InternalGraph, PositionMap } from '../types/schema';
+import type { Graph as InternalGraph, PositionMap } from '@akitaroh/mermaid-core';
 
 export type LayoutOptions = {
   direction?: 'LR' | 'TD';
