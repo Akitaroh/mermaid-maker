@@ -11,12 +11,12 @@ import type {
   Node,
   NodeShape,
   ParseResult,
-} from '../types/schema';
+} from '../types/schema.js';
 import {
   extractPositionComments,
   extractEdgeCtrlComments,
   extractEdgeShapeComments,
-} from '../store/position-store';
+} from '../store/position-store.js';
 
 const HEADER_RE = /^\s*graph\s+(LR|TD)\s*$/;
 

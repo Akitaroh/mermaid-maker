@@ -6,7 +6,7 @@
  */
 
 import { WebSocketServer, WebSocket, type RawData } from 'ws';
-import { IncomingMessage } from 'node:http';
+import { IncomingMessage, Server as HttpServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { randomBytes } from 'node:crypto';
 import type { ServerMsg, ClientMsg } from './types.js';
@@ -16,6 +16,12 @@ export type WSRelayOptions = {
   port?: number;
   /** Bind host. Default '127.0.0.1' for safety. */
   host?: string;
+  /**
+   * Attach to an existing http.Server instead of opening our own listener.
+   * Useful when serving HTTP (web canvas) and WS on the same port.
+   * If provided, port/host options are ignored.
+   */
+  httpServer?: HttpServer;
 };
 
 export type WSRelayStartResult = {
@@ -34,38 +40,66 @@ type EditWaiter = (mermaid: string) => void;
 
 export class WSRelay {
   private wss: WebSocketServer | null = null;
+  /** Whether `wss` owns its own listener (true) vs attached to external http.Server (false). */
+  private ownsServer = true;
   private readonly sessions = new Map<string, Session>();
   /** key = `${sessionId}:${boardId}`, value = waiter callbacks */
   private readonly editWaiters = new Map<string, EditWaiter[]>();
-  private readonly opts: Required<WSRelayOptions>;
+  private readonly opts: WSRelayOptions;
 
   constructor(opts: WSRelayOptions = {}) {
-    this.opts = {
-      port: opts.port ?? 0,
-      host: opts.host ?? '127.0.0.1',
-    };
+    this.opts = opts;
   }
 
   // ─── Lifecycle ────────────────────────────────────────────────────
 
   start(): Promise<WSRelayStartResult> {
-    return new Promise((resolve, reject) => {
-      const wss = new WebSocketServer({
-        port: this.opts.port,
-        host: this.opts.host,
-      });
-      this.wss = wss;
+    if (this.opts.httpServer) {
+      return this.startAttached(this.opts.httpServer);
+    }
+    return this.startStandalone();
+  }
 
+  private startStandalone(): Promise<WSRelayStartResult> {
+    const port = this.opts.port ?? 0;
+    const host = this.opts.host ?? '127.0.0.1';
+    return new Promise((resolve, reject) => {
+      const wss = new WebSocketServer({ port, host });
+      this.wss = wss;
+      this.ownsServer = true;
       wss.on('listening', () => {
         const addr = wss.address() as AddressInfo;
-        const port = addr.port;
-        resolve({
-          port,
-          url: `ws://${this.opts.host}:${port}`,
-        });
+        resolve({ port: addr.port, url: `ws://${host}:${addr.port}` });
       });
-      wss.on('error', (err) => reject(err));
+      wss.on('error', reject);
       wss.on('connection', (ws, req) => this.onConnection(ws, req));
+    });
+  }
+
+  private startAttached(httpServer: HttpServer): Promise<WSRelayStartResult> {
+    const wss = new WebSocketServer({ noServer: true });
+    this.wss = wss;
+    this.ownsServer = false;
+    httpServer.on('upgrade', (req, socket, head) => {
+      wss.handleUpgrade(req, socket, head, (ws) =>
+        wss.emit('connection', ws, req)
+      );
+    });
+    wss.on('connection', (ws, req) => this.onConnection(ws, req));
+    // The httpServer is owned by the caller; we assume it's already (or will be)
+    // listening. Resolve immediately with its address.
+    return new Promise((resolve, reject) => {
+      const addr = httpServer.address();
+      const finish = () => {
+        const a = httpServer.address() as AddressInfo;
+        resolve({ port: a.port, url: `ws://127.0.0.1:${a.port}` });
+      };
+      if (addr && typeof addr === 'object') {
+        finish();
+      } else {
+        httpServer.once('listening', finish);
+        httpServer.once('error', reject);
+      }
     });
   }
 
@@ -84,15 +118,15 @@ export class WSRelay {
       }
     }
     this.sessions.clear();
-    // Reject any waiting waiters
-    for (const list of this.editWaiters.values()) {
-      // We resolve with empty string? No — let them time out via their own
-      // mechanism. Just clear so no further resolves happen.
-    }
     this.editWaiters.clear();
-    await new Promise<void>((resolve) => {
-      wss.close(() => resolve());
-    });
+    if (this.ownsServer) {
+      await new Promise<void>((resolve) => {
+        wss.close(() => resolve());
+      });
+    } else {
+      // Attached mode: caller owns the http.Server lifecycle. Just close ws.
+      wss.close();
+    }
   }
 
   // ─── Session API (called by MCPTools) ──────────────────────────────

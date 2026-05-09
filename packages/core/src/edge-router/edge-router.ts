@@ -8,7 +8,7 @@
  * canonical direction か否かで offset 値の符号を補正する。
  */
 
-import type { Edge } from '../types/schema';
+import type { Edge } from '../types/schema.js';
 
 export type EdgeOffsets = Record<string, number>;
 

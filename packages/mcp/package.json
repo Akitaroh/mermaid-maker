@@ -15,7 +15,10 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "pnpm build:web && pnpm build:tsc && pnpm build:copy-web",
+    "build:web": "pnpm --filter @akitaroh/mermaid-maker-web build",
+    "build:tsc": "tsc",
+    "build:copy-web": "node scripts/copy-web.mjs",
     "test": "vitest run",
     "start": "tsx src/bin.ts",
     "dev": "tsx watch src/bin.ts"

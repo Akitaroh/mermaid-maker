@@ -9,7 +9,7 @@ import type {
   EdgeShape,
   EdgeShapeMap,
   PositionMap,
-} from '../types/schema';
+} from '../types/schema.js';
 
 const META_PREFIXES = {
   position: 'mm-pos',

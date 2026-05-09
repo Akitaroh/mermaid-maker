@@ -26,7 +26,11 @@ import { setURLState, readURLState } from '../persistence/url-state';
 import { saveText, loadText } from '../persistence/local-store';
 import { SAMPLES, getSample } from '../samples/samples';
 import { createBoardStore } from '../board/board-store';
-import { useBoardStore } from '../board/use-board-store';
+import {
+  useActiveBoardId,
+  useActiveBoardText,
+  useBoardList,
+} from '../board/use-board-store';
 import { BoardTabs } from '../board/board-tabs';
 import { parseSessionFromUrl } from '../session/url-parser';
 import { useSessionBridge } from '../session/use-session-bridge';
@@ -44,9 +48,20 @@ const DEFAULT_TEXT = `graph LR
 %% mm-pos: start=40,80 proc=180,80 branch=320,80 fin=480,80`;
 
 const DEFAULT_BOARD_ID = 'default';
-const WS_URL =
-  (import.meta.env.VITE_MM_WS_URL as string | undefined) ??
-  'ws://localhost:7331';
+
+/**
+ * Resolve the WebSocket URL.
+ *  1. VITE_MM_WS_URL env override (build-time)
+ *  2. Same-origin derive from window.location (works for embedded mode where
+ *     HTTP and WS are served from the same port by the MCP server)
+ */
+const WS_URL = ((): string => {
+  const fromEnv = import.meta.env.VITE_MM_WS_URL as string | undefined;
+  if (fromEnv) return fromEnv;
+  if (typeof window === 'undefined') return 'ws://localhost:7331';
+  const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${proto}//${window.location.host}`;
+})();
 
 function getInitialText(): string {
   // 優先順: URL hash > LocalStorage > DEFAULT
@@ -84,19 +99,18 @@ export function App() {
     }
   }, [sessionId, store]);
 
-  // 5) Subscribe to active board view.
-  const view = useBoardStore(store, (s) => ({
-    activeBoardId: s.activeBoardId,
-    text: s.activeBoardId
-      ? (s.boards[s.activeBoardId]?.mermaid ?? '')
-      : '',
-    boards: Object.values(s.boards).map((b) => ({ id: b.id })),
-  }));
+  // 5) Subscribe via narrow primitive selectors (avoid infinite render loop).
+  const activeBoardId = useActiveBoardId(store);
+  const text = useActiveBoardText(store);
+  const boardIds = useBoardList(store);
+  const boards = useMemo(
+    () => boardIds.map((id) => ({ id })),
+    [boardIds]
+  );
 
-  const text = view.text;
   function setText(next: string) {
-    if (!view.activeBoardId) return;
-    store.upsertBoard(view.activeBoardId, next);
+    if (!activeBoardId) return;
+    store.upsertBoard(activeBoardId, next);
   }
 
   // 6) Derived GUI state per current text.
@@ -112,7 +126,7 @@ export function App() {
   useEffect(() => {
     if (text === '') return;
     syncTextToGui(text);
-  }, [text, view.activeBoardId]);
+  }, [text, activeBoardId]);
 
   // 8) LocalStorage save: only meaningful in local-only mode.
   useEffect(() => {
@@ -164,8 +178,8 @@ export function App() {
   return (
     <div className="mm-app">
       <BoardTabs
-        boards={view.boards}
-        activeBoardId={view.activeBoardId}
+        boards={boards}
+        activeBoardId={activeBoardId}
         onSelect={(id) => store.setActive(id)}
       />
       <div className="mm-panes">

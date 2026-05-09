@@ -4,7 +4,7 @@
  * 設計: ../../../50_Mission/Mermaid Maker/Atom-GraphOps.md
  */
 
-import type { Edge, Graph, Node, NodeShape } from '../types/schema';
+import type { Edge, Graph, Node, NodeShape } from '../types/schema.js';
 
 export function generateNodeId(graph: Graph): string {
   const used = new Set(graph.nodes.map((n) => n.id));

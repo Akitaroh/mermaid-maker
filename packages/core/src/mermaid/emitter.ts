@@ -10,12 +10,12 @@ import type {
   Graph,
   Node,
   PositionMap,
-} from '../types/schema';
+} from '../types/schema.js';
 import {
   formatPositionComment,
   formatEdgeCtrlComment,
   formatEdgeShapeComment,
-} from '../store/position-store';
+} from '../store/position-store.js';
 
 function formatNode(node: Node): string {
   switch (node.shape) {
