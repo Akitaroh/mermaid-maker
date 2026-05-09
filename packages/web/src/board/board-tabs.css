@@ -1,0 +1,31 @@
+.board-tabs {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 0 8px;
+  background: #fafafa;
+  font-size: 13px;
+  user-select: none;
+}
+
+.board-tab {
+  padding: 6px 12px;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: #4b5563;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color 120ms ease;
+}
+
+.board-tab:hover {
+  color: #111;
+}
+
+.board-tab--active {
+  color: #111;
+  border-bottom-color: #3b82f6;
+  font-weight: 500;
+}
