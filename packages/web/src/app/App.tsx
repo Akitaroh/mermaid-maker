@@ -32,6 +32,7 @@ import {
   useBoardList,
 } from '../board/use-board-store';
 import { BoardTabs } from '../board/board-tabs';
+import { useBoardPersistence } from '../board/use-board-persistence';
 import { parseSessionFromUrl } from '../session/url-parser';
 import { useSessionBridge } from '../session/use-session-bridge';
 import './app.css';
@@ -83,21 +84,29 @@ export function App() {
   );
   const sessionId = sessionInfo?.sessionId ?? null;
 
-  // 3) Wire ws bridge if there is a session.
+  // 3) Wire localStorage persistence FIRST so the restore happens before
+  //    SessionBridge's sync_request is answered with stale state.
+  const { restored } = useBoardPersistence({ store, sessionId });
+
+  // 4) Wire ws bridge if there is a session.
   const { status: wsStatus } = useSessionBridge({
     url: WS_URL,
     sessionId,
     store,
   });
 
-  // 4) Initialize: when no session, ensure default board exists with seed text.
-  //    When session exists, leave store empty — server will populate via set_board.
+  // 5) Initialize: when no session, ensure default board exists with seed text.
+  //    When session exists and persistence didn't restore anything, leave the
+  //    store empty — the server will populate via set_board.
   useEffect(() => {
     if (sessionId) return;
     if (Object.keys(store.getState().boards).length === 0) {
       store.upsertBoard(DEFAULT_BOARD_ID, getInitialText());
     }
   }, [sessionId, store]);
+
+  // Mark `restored` as used so we keep the dependency for future UI hints.
+  void restored;
 
   // 5) Subscribe via narrow primitive selectors (avoid infinite render loop).
   const activeBoardId = useActiveBoardId(store);
