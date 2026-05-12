@@ -153,6 +153,20 @@ body,
   margin-left: 8px;
 }
 
+/* Connection handles — emphasized on node hover so users discover the drag target.
+ * React Flow's handle uses transform to position itself, so we tweak only
+ * box-shadow / opacity / cursor here to avoid breaking placement. */
+.mm-handle {
+  transition: box-shadow 120ms ease, opacity 120ms ease;
+  opacity: 0.85;
+  cursor: crosshair !important;
+}
+.mm-node:hover .mm-handle,
+.mm-handle:hover {
+  opacity: 1;
+  box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.35) !important;
+}
+
 .mm-label-input {
   border: 1px solid #0066cc;
   outline: none;

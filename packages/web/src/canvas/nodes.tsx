@@ -33,7 +33,15 @@ function HandlesAround() {
     ['top', Position.Top],
     ['bottom', Position.Bottom],
   ];
-  const style = { background: '#888', width: 8, height: 8 };
+  // Discoverable, draggable handles: bigger size, blue color with white border.
+  // The CSS class `.mm-handle` is targeted by stylesheet for hover scale-up.
+  const style = {
+    background: '#0066cc',
+    width: 12,
+    height: 12,
+    border: '2px solid #fff',
+    boxShadow: '0 0 0 1px #0066cc',
+  };
   return (
     <>
       {sides.map(([key, pos]) => (
@@ -43,6 +51,7 @@ function HandlesAround() {
           position={pos}
           id={`s-${key}`}
           style={style}
+          className="mm-handle"
         />
       ))}
       {sides.map(([key, pos]) => (
@@ -52,6 +61,7 @@ function HandlesAround() {
           position={pos}
           id={`t-${key}`}
           style={style}
+          className="mm-handle"
         />
       ))}
     </>

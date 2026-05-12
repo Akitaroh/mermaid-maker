@@ -8,6 +8,7 @@ import {
   ReactFlow,
   Background,
   Controls,
+  MarkerType,
   type Node as RFNode,
   type Edge as RFEdge,
   type NodeChange,
@@ -301,6 +302,27 @@ export function Canvas({
           {selectedEdge && (
             <>
               <span className="mm-toolbar-divider" />
+              <span className="mm-toolbar-label">ラベル:</span>
+              <input
+                key={selectedEdge.id}
+                type="text"
+                defaultValue={selectedEdge.label ?? ''}
+                placeholder="例: a, b"
+                className="mm-toolbar-input"
+                onChange={(e) =>
+                  handleEdgeLabelChange(selectedEdge.id, e.target.value)
+                }
+                onKeyDown={(e) => e.stopPropagation()}
+                title="エッジに置くラベル（Mermaid の |label|）"
+                style={{
+                  fontSize: 12,
+                  width: 100,
+                  padding: '2px 6px',
+                  border: '1px solid #ccc',
+                  borderRadius: 3,
+                }}
+              />
+              <span className="mm-toolbar-divider" />
               <span className="mm-toolbar-label">エッジ形状:</span>
               {EDGE_SHAPE_OPTIONS.map((shape) => (
                 <button
@@ -335,7 +357,8 @@ export function Canvas({
             </span>
           )}
           <span className="mm-help">
-            ダブルクリックでラベル編集 / Delete で削除 / 曲線エッジ選択時は青い点をドラッグ
+            ノード端の青点をドラッグでエッジ作成 / ダブルクリックでラベル編集 /
+            エッジ選択でラベル欄表示 / Delete で削除
           </span>
         </div>
       )}
@@ -348,6 +371,14 @@ export function Canvas({
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         deleteKeyCode={editable ? ['Delete', 'Backspace'] : null}
+        defaultEdgeOptions={{
+          markerEnd: {
+            type: MarkerType.ArrowClosed,
+            color: '#333',
+            width: 20,
+            height: 20,
+          },
+        }}
         fitView
       >
         <Background />
