@@ -3,7 +3,7 @@
  * 設計: ../../../50_Mission/Mermaid Maker/Atom-Canvas.md
  */
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ReactFlow,
   Background,
@@ -166,13 +166,14 @@ export function Canvas({
           onLabelChange: editable
             ? (next: string) => handleEdgeLabelChange(e.id, next)
             : undefined,
+          // Receives FLOW coords directly. Edge component is responsible
+          // for any client→flow conversion via the `screenToFlow` helper
+          // passed below.
           onControlPointChange: onEdgeControlsChange
-            ? (next: { x: number; y: number }) => {
-                // ControlPointHandle が screen 座標で渡してくる場合があるので変換
-                const flow = screenToFlow(next.x, next.y);
-                handleControlPointChange(e.id, flow);
-              }
+            ? (next: { x: number; y: number }) =>
+                handleControlPointChange(e.id, next)
             : undefined,
+          screenToFlow,
         },
         selected: e.id === selectedEdgeId,
       })),
@@ -224,16 +225,51 @@ export function Canvas({
     if (nextGraph && onGraphChange) onGraphChange(nextGraph);
   };
 
+  // Remember which handle type the user started the drag from. React Flow
+  // assigns conn.source / conn.target by handle TYPE (source vs target),
+  // not by drag direction. If the user grabbed a target-type handle to
+  // start dragging, the resulting conn is opposite to their intent —
+  // we flip it back below.
+  const connectStartType = useRef<'source' | 'target' | null>(null);
+
+  const onConnectStart = useCallback(
+    (
+      _event: unknown,
+      params: { handleType: 'source' | 'target' | null },
+    ) => {
+      connectStartType.current = params.handleType ?? null;
+    },
+    [],
+  );
+
+  const onConnectEnd = useCallback(() => {
+    connectStartType.current = null;
+  }, []);
+
   const onConnect = (conn: Connection) => {
     if (!onGraphChange) return;
     if (!conn.source || !conn.target) return;
-    // Pin the edge to the handles the user actually grabbed, so the
-    // attachment point doesn't jump to the "closest" handle on re-render.
+
+    const startedFromTarget = connectStartType.current === 'target';
+
+    let src = conn.source;
+    let tgt = conn.target;
+    let srcH = conn.sourceHandle ?? undefined;
+    let tgtH = conn.targetHandle ?? undefined;
+
+    if (startedFromTarget) {
+      // The user grabbed a t-* handle and dragged onto a s-* handle.
+      // Flip the recorded direction so the edge matches the drag.
+      [src, tgt] = [tgt, src];
+      srcH = conn.targetHandle?.replace(/^t-/, 's-') ?? undefined;
+      tgtH = conn.sourceHandle?.replace(/^s-/, 't-') ?? undefined;
+    }
+
     const { graph: next } = addEdge(graph, {
-      source: conn.source,
-      target: conn.target,
-      ...(conn.sourceHandle ? { sourceHandle: conn.sourceHandle } : {}),
-      ...(conn.targetHandle ? { targetHandle: conn.targetHandle } : {}),
+      source: src,
+      target: tgt,
+      ...(srcH ? { sourceHandle: srcH } : {}),
+      ...(tgtH ? { targetHandle: tgtH } : {}),
     });
     onGraphChange(next);
   };
@@ -376,6 +412,8 @@ export function Canvas({
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        onConnectStart={onConnectStart}
+        onConnectEnd={onConnectEnd}
         deleteKeyCode={editable ? ['Delete', 'Backspace'] : null}
         defaultEdgeOptions={{
           markerEnd: {

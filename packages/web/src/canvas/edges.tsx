@@ -19,7 +19,10 @@ export type EdgeData = {
   offsetIndex?: number;
   controlPoint?: { x: number; y: number };
   onLabelChange?: (next: string) => void;
+  /** Called with FLOW coords (not client coords). Edge component must
+   * convert any DOM pointer event via `screenToFlow` before calling. */
   onControlPointChange?: (point: { x: number; y: number }) => void;
+  screenToFlow?: (clientX: number, clientY: number) => { x: number; y: number };
 };
 
 const PARALLEL_OFFSET_PX = 50;
@@ -100,25 +103,27 @@ function EditableEdgeLabel({
 
 /**
  * 中間点ドラッグハンドル（選択中のみ表示）
+ *
+ * `onChange` は FLOW 座標で呼ばれる。client→flow 変換は `screenToFlow`
+ * を使ってこの中で行う。
  */
 function ControlPointHandle({
   x,
   y,
   onChange,
-  reactFlowGetCoord,
+  screenToFlow,
 }: {
   x: number;
   y: number;
   onChange: (next: { x: number; y: number }) => void;
-  reactFlowGetCoord: (clientX: number, clientY: number) => { x: number; y: number };
+  screenToFlow: (clientX: number, clientY: number) => { x: number; y: number };
 }) {
   const dragging = useRef(false);
 
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
       if (!dragging.current) return;
-      const flow = reactFlowGetCoord(e.clientX, e.clientY);
-      onChange(flow);
+      onChange(screenToFlow(e.clientX, e.clientY));
     };
     const onUp = () => {
       dragging.current = false;
@@ -129,7 +134,7 @@ function ControlPointHandle({
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
     };
-  }, [onChange, reactFlowGetCoord]);
+  }, [onChange, screenToFlow]);
 
   return (
     <EdgeLabelRenderer>
@@ -244,24 +249,72 @@ export function LabeledEdge({
       labelY = 0.25 * sourceY + 0.5 * ctrlY + 0.25 * targetY;
   }
 
+  // Direct-drag on the curve itself: dragging any point of a default
+  // (bezier) edge bends the curve so that its midpoint B(0.5) follows
+  // the cursor. Math: B(0.5) = 0.25·P0 + 0.5·ctrl + 0.25·P2 = cursor
+  //                 → ctrl = 2·cursor − 0.5·P0 − 0.5·P2.
+  //
+  // We render an invisible wider stroke on top of the visible BaseEdge
+  // to catch pointer events without the user needing to select first.
+  const dragging = useRef(false);
+  const canDirectDrag =
+    shape === 'default' && !!d?.onControlPointChange && !!d?.screenToFlow;
+
+  useEffect(() => {
+    if (!canDirectDrag) return;
+    const onMove = (e: PointerEvent) => {
+      if (!dragging.current) return;
+      const onChange = d?.onControlPointChange;
+      const toFlow = d?.screenToFlow;
+      if (!onChange || !toFlow) return;
+      const cursor = toFlow(e.clientX, e.clientY);
+      onChange({
+        x: 2 * cursor.x - 0.5 * sourceX - 0.5 * targetX,
+        y: 2 * cursor.y - 0.5 * sourceY - 0.5 * targetY,
+      });
+    };
+    const onUp = () => {
+      dragging.current = false;
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+  }, [canDirectDrag, d, sourceX, sourceY, targetX, targetY]);
+
   return (
     <>
       <BaseEdge id={id} path={path} markerEnd={markerEnd} />
+      {canDirectDrag && (
+        // Invisible wide hit-area on top of the visible curve so the user
+        // can grab the arrow itself without first clicking to select.
+        <path
+          d={path}
+          fill="none"
+          stroke="transparent"
+          strokeWidth={18}
+          style={{ cursor: 'grab', pointerEvents: 'stroke' }}
+          onPointerDown={(e) => {
+            dragging.current = true;
+            e.stopPropagation();
+            e.preventDefault();
+          }}
+        />
+      )}
       <EditableEdgeLabel
         label={d?.label}
         onLabelChange={d?.onLabelChange}
         x={labelX}
         y={labelY}
       />
-      {selected && shape === 'default' && d?.onControlPointChange && (
+      {selected && shape === 'default' && d?.onControlPointChange && d?.screenToFlow && (
         <ControlPointHandle
           x={ctrlX}
           y={ctrlY}
           onChange={d.onControlPointChange}
-          reactFlowGetCoord={(clientX, clientY) => {
-            // viewport coord → flow coord 変換は Canvas 側から渡す
-            return { x: clientX, y: clientY };
-          }}
+          screenToFlow={d.screenToFlow}
         />
       )}
     </>
