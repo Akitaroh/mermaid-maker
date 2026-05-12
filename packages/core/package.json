@@ -1,8 +1,25 @@
 {
   "name": "@akitaroh/mermaid-core",
   "version": "0.2.0-dev",
-  "description": "Pure logic core for MermaidMaker: parser, emitter, position store, graph ops, edge router.",
+  "description": "Pure logic core for MermaidMaker: Mermaid parser/emitter, position store, graph CRUD, edge routing, and structural query (find_path, validate, etc.). Browser/Node-neutral, dependency-free.",
   "license": "MIT",
+  "author": "akitaroh",
+  "homepage": "https://github.com/Akitaroh/mermaid-maker/tree/main/packages/core#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Akitaroh/mermaid-maker.git",
+    "directory": "packages/core"
+  },
+  "bugs": {
+    "url": "https://github.com/Akitaroh/mermaid-maker/issues"
+  },
+  "keywords": [
+    "mermaid",
+    "parser",
+    "ast",
+    "graph",
+    "diagram"
+  ],
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -14,13 +31,22 @@
   },
   "files": [
     "dist",
-    "src"
+    "src",
+    "!src/**/*.test.ts",
+    "!src/**/*.test.tsx",
+    "README.md",
+    "LICENSE"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsc",
     "build:watch": "tsc --watch",
     "test": "vitest run",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "prepack": "pnpm build",
+    "pack:dry": "pnpm build && npm pack --dry-run"
   },
   "devDependencies": {
     "typescript": "^5.6.3",

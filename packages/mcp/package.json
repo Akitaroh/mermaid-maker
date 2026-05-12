@@ -1,8 +1,28 @@
 {
   "name": "@akitaroh/mermaid-mcp",
   "version": "0.2.0-dev",
-  "description": "MCP server for MermaidMaker: shared canvas + structural query tools for AI agents.",
+  "description": "MCP server that lets AI agents and humans share a Mermaid canvas. The AI shows a diagram, the human edits it, and the AI reads it back as text or queryable structure.",
   "license": "MIT",
+  "author": "akitaroh",
+  "homepage": "https://github.com/Akitaroh/mermaid-maker/tree/main/packages/mcp#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Akitaroh/mermaid-maker.git",
+    "directory": "packages/mcp"
+  },
+  "bugs": {
+    "url": "https://github.com/Akitaroh/mermaid-maker/issues"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "mermaid",
+    "diagram",
+    "ai",
+    "claude",
+    "shared-canvas",
+    "anthropic"
+  ],
   "type": "module",
   "bin": {
     "mermaid-mcp": "./dist/bin.js"
@@ -14,6 +34,9 @@
     "README.md",
     "LICENSE"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "pnpm build:web && pnpm build:tsc && pnpm build:copy-web",
     "build:web": "pnpm --filter @akitaroh/mermaid-maker-web build",
@@ -21,7 +44,9 @@
     "build:copy-web": "node scripts/copy-web.mjs",
     "test": "vitest run",
     "start": "tsx src/bin.ts",
-    "dev": "tsx watch src/bin.ts"
+    "dev": "tsx watch src/bin.ts",
+    "prepack": "pnpm build",
+    "pack:dry": "pnpm build && npm pack --dry-run"
   },
   "dependencies": {
     "@akitaroh/mermaid-core": "workspace:*",
