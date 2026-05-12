@@ -235,10 +235,13 @@ export function LabeledEdge({
       break;
     }
     default:
-      // 二次ベジエ: 制御点 (ctrlX, ctrlY) を経由
+      // 二次ベジエ: 制御点 (ctrlX, ctrlY) を経由。
+      // ラベルは制御点ではなく **曲線上の中点** B(0.5) に置く。
+      // 制御点ハンドルは曲線から離れた位置にあるので、これでラベルと
+      // ハンドルが重ならず両方クリックできる。
       path = `M ${sourceX} ${sourceY} Q ${ctrlX} ${ctrlY} ${targetX} ${targetY}`;
-      labelX = ctrlX;
-      labelY = ctrlY;
+      labelX = 0.25 * sourceX + 0.5 * ctrlX + 0.25 * targetX;
+      labelY = 0.25 * sourceY + 0.5 * ctrlY + 0.25 * targetY;
   }
 
   return (

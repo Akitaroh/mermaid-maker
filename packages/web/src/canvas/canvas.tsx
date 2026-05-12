@@ -155,6 +155,8 @@ export function Canvas({
         id: e.id,
         source: e.source,
         target: e.target,
+        ...(e.sourceHandle ? { sourceHandle: e.sourceHandle } : {}),
+        ...(e.targetHandle ? { targetHandle: e.targetHandle } : {}),
         type: e.source === e.target ? 'selfLoop' : 'default',
         data: {
           label: e.label,
@@ -225,9 +227,13 @@ export function Canvas({
   const onConnect = (conn: Connection) => {
     if (!onGraphChange) return;
     if (!conn.source || !conn.target) return;
+    // Pin the edge to the handles the user actually grabbed, so the
+    // attachment point doesn't jump to the "closest" handle on re-render.
     const { graph: next } = addEdge(graph, {
       source: conn.source,
       target: conn.target,
+      ...(conn.sourceHandle ? { sourceHandle: conn.sourceHandle } : {}),
+      ...(conn.targetHandle ? { targetHandle: conn.targetHandle } : {}),
     });
     onGraphChange(next);
   };

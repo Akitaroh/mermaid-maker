@@ -43,7 +43,14 @@ export function addNode(
 
 export function addEdge(
   graph: Graph,
-  partial: { id?: string; source: string; target: string; label?: string },
+  partial: {
+    id?: string;
+    source: string;
+    target: string;
+    label?: string;
+    sourceHandle?: string;
+    targetHandle?: string;
+  },
 ): { graph: Graph; edge: Edge } {
   const id = partial.id ?? generateEdgeId(graph);
   const edge: Edge = {
@@ -51,6 +58,8 @@ export function addEdge(
     source: partial.source,
     target: partial.target,
     ...(partial.label ? { label: partial.label } : {}),
+    ...(partial.sourceHandle ? { sourceHandle: partial.sourceHandle } : {}),
+    ...(partial.targetHandle ? { targetHandle: partial.targetHandle } : {}),
   };
   return {
     graph: { ...graph, edges: [...graph.edges, edge] },
