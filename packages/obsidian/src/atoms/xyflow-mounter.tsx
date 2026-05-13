@@ -53,6 +53,19 @@ function injectStyles() {
       border-color: var(--interactive-accent);
       box-shadow: 0 0 0 2px var(--interactive-accent-hover, var(--interactive-accent));
     }
+    /* shape variants */
+    .react-flow__node-mm.mm-shape-rounded {
+      border-radius: 28px;
+    }
+    .react-flow__node-mm.mm-shape-circle {
+      border-radius: 50%;
+      padding: 4px;
+    }
+    .react-flow__node-mm.mm-shape-doubleCircle {
+      border-radius: 50%;
+      padding: 4px;
+      box-shadow: inset 0 0 0 2px var(--background-primary), inset 0 0 0 3px var(--background-modifier-border);
+    }
     .react-flow__node-mm .mm-node-content {
       width: 100%;
       height: 100%;
@@ -61,6 +74,7 @@ function injectStyles() {
       justify-content: center;
       overflow: hidden;
       text-overflow: ellipsis;
+      text-align: center;
     }
     .react-flow__node-mm .mm-node-content > p {
       margin: 0;
@@ -105,19 +119,28 @@ export type MountHandle = {
 function MMNode(props: NodeProps) {
   const renderLabel = useContext(RenderLabelContext);
   const ref = useRef<HTMLDivElement>(null);
-  const label = String((props.data as { label?: string })?.label ?? '');
+  const data = props.data as { label?: string; shape?: string };
+  const label = String(data?.label ?? '');
+  const shape = data?.shape ?? 'box';
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    el.innerHTML = '';
+    // shape class を node の親要素 (.react-flow__node-mm) に乗せる
+    const nodeEl = el.closest('.react-flow__node-mm');
+    if (nodeEl) {
+      nodeEl.classList.remove('mm-shape-box', 'mm-shape-rounded', 'mm-shape-circle', 'mm-shape-doubleCircle');
+      nodeEl.classList.add(`mm-shape-${shape}`);
+    }
+    // innerHTML 代入は Obsidian 審査で flag されるため標準 API を使う
+    el.replaceChildren();
     if (renderLabel) {
       const cleanup = renderLabel(label, el);
       return cleanup;
     }
     el.textContent = label;
     return undefined;
-  }, [renderLabel, label]);
+  }, [renderLabel, label, shape]);
 
   return (
     <>
@@ -224,7 +247,7 @@ function CanvasInner({ nodes, edges, theme, onChange, onEditLabel }: InnerProps)
           id,
           type: 'mm',
           position: { x: flowX, y: flowY },
-          data: { label: id },
+          data: { label: id, shape: 'box' },
           style: { width: 160, height: 56 },
           measured: { width: 160, height: 56 },
         },

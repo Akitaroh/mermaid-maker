@@ -2,6 +2,19 @@ import esbuild from 'esbuild';
 import { copyFileSync, mkdirSync, existsSync, renameSync } from 'node:fs';
 import { dirname } from 'node:path';
 
+// BRAT / Obsidian community plugin store はリポルートの manifest.json と
+// versions.json を要求するため、プラグイン package の同名ファイルを
+// monorepo ルートにも複製する。
+const MONOREPO_ROOT = '/Users/akitaroh/Desktop/Akitaroh/_repos/mermaid-maker';
+function syncRootManifest() {
+  try {
+    copyFileSync('manifest.json', `${MONOREPO_ROOT}/manifest.json`);
+    copyFileSync('versions.json', `${MONOREPO_ROOT}/versions.json`);
+  } catch {
+    // ignore
+  }
+}
+
 const production = process.argv.includes('production');
 
 // Plugin artifacts (main.js, manifest.json) are placed directly into the Vault's
@@ -38,7 +51,10 @@ const ctx = await esbuild.context({
     {
       name: 'copy-manifest',
       setup(build) {
-        build.onStart(() => copyManifest());
+        build.onStart(() => {
+          copyManifest();
+          syncRootManifest();
+        });
       },
     },
     {

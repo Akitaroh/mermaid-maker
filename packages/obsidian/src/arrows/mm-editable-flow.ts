@@ -29,6 +29,7 @@ import {
   type Graph,
   type Node as MmNode,
   type Edge as MmEdge,
+  type NodeShape,
   type PositionMap,
 } from '@akitaroh/mermaid-core';
 import { fillMissingPositions } from '../atoms/dagre-layout.js';
@@ -64,11 +65,13 @@ function rfToGraph(
     graph: {
       direction,
       nodes: rfNodes.map((n) => {
-        const raw = String((n.data as { label?: string })?.label ?? n.id);
+        const data = n.data as { label?: string; shape?: NodeShape };
+        const raw = String(data?.label ?? n.id);
+        const shape: NodeShape = data?.shape ?? 'box';
         return {
           id: n.id,
           label: quoteLabelIfNeeded(raw),
-          shape: 'box' as const,
+          shape,
         };
       }),
       edges: rfEdges.map((e, i) => ({
@@ -112,14 +115,22 @@ export async function renderMmEditableFlow(
   const stored: PositionMap = extractPositionComments(source);
   const initialPositions = fillMissingPositions(graph, stored, graph.direction);
 
-  const rfNodes: RFNode[] = graph.nodes.map((n: MmNode) => ({
-    id: n.id,
-    type: 'mm',
-    position: initialPositions[n.id] ?? { x: 0, y: 0 },
-    data: { label: (n.label ?? n.id).replace(/^"|"$/g, '') },
-    style: { width: 160, height: 56 },
-    measured: { width: 160, height: 56 },
-  }));
+  const rfNodes: RFNode[] = graph.nodes.map((n: MmNode) => {
+    // circle 系は正方形に寄せる、それ以外は横長 rect
+    const isCircular = n.shape === 'circle' || n.shape === 'doubleCircle';
+    const size = isCircular ? { width: 96, height: 96 } : { width: 160, height: 56 };
+    return {
+      id: n.id,
+      type: 'mm',
+      position: initialPositions[n.id] ?? { x: 0, y: 0 },
+      data: {
+        label: (n.label ?? n.id).replace(/^"|"$/g, ''),
+        shape: n.shape,
+      },
+      style: size,
+      measured: size,
+    };
+  });
   const rfEdges: RFEdge[] = graph.edges.map((e: MmEdge) => ({
     id: e.id,
     source: e.source,
