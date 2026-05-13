@@ -1,0 +1,9 @@
+{
+  "id": "mermaid-maker",
+  "name": "MermaidMaker",
+  "version": "0.0.1",
+  "minAppVersion": "1.4.0",
+  "description": "Make wikilinks inside Mermaid diagrams clickable.",
+  "author": "akitaroh",
+  "isDesktopOnly": false
+}
