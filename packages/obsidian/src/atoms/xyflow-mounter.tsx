@@ -2,39 +2,93 @@
  * Atom-XyflowMounter
  *
  * 任意の HTMLElement に React + xyflow キャンバスをマウントする Adapter Atom。
- * Stage 3a 段階では read-only（ノード位置の表示のみ）。Stage 3b 以降で
- * onGraphChange を生やす。
+ *
+ * Stage 3a: read-only でノード/エッジ表示
+ * Stage 3b: ノードドラッグを有効化、ドラッグ完了時に**全ノード**位置を通知
  *
  * 設計判断:
- * - controlled state は呼び出し側（Arrow）が持ち、Mount は表示専用に徹する
- * - ノードラベルは renderLabel コールバックを inject（Stage 2b の MarkdownRenderer 再利用予定）
- * - ReactDOM.createRoot で root を作り、unmount は呼び出し側が責任
+ * - controlled state 化を避け、xyflow にノード state を任せる
+ *   （v12 で controlled + applyNodeChanges を使うと measured が伝播せず
+ *    edge が描画されないケースがあるため）
+ * - 位置変更は onNodeDragStop で「ドラッグ完了時」だけ拾う
+ * - 第 3 引数 (drag された nodes) では他のノード位置が落ちるので、
+ *   ReactFlowProvider + useReactFlow().getNodes() で全 nodes を取得する
  */
 
 import { createRoot, Root } from 'react-dom/client';
-import { ReactFlow, Background, Controls } from '@xyflow/react';
-import type { Node as RFNode, Edge as RFEdge } from '@xyflow/react';
+import {
+  ReactFlow,
+  ReactFlowProvider,
+  useReactFlow,
+  Background,
+  Controls,
+  type Node as RFNode,
+  type Edge as RFEdge,
+} from '@xyflow/react';
+import type { PositionMap } from '@akitaroh/mermaid-core';
 import '@xyflow/react/dist/style.css';
 
 export type MountOptions = {
   nodes: RFNode[];
   edges: RFEdge[];
-  /** dark/light に応じて React Flow の色合いを切り替え */
   theme?: 'light' | 'dark';
-  /** ノードラベル描画。指定があれば custom node の中で呼ぶ */
-  renderLabel?: (label: string, el: HTMLElement) => void;
+  /** Stage 3b: ドラッグ完了時に最新 positions を通知 */
+  onPositionsChange?: (positions: PositionMap) => void;
 };
 
 export type MountHandle = {
   unmount: () => void;
-  /** 外部から graph state を強制差替（書き戻し競合時の同期用 / Stage 3b 以降） */
   update: (next: { nodes: RFNode[]; edges: RFEdge[] }) => void;
 };
 
+function extractPositions(nodes: RFNode[]): PositionMap {
+  const map: PositionMap = {};
+  for (const n of nodes) {
+    map[n.id] = { x: n.position.x, y: n.position.y };
+  }
+  return map;
+}
+
+type InnerProps = {
+  nodes: RFNode[];
+  edges: RFEdge[];
+  theme: 'light' | 'dark';
+  draggable: boolean;
+  onPositionsChange?: (positions: PositionMap) => void;
+};
+
+function CanvasInner({
+  nodes,
+  edges,
+  theme,
+  draggable,
+  onPositionsChange,
+}: InnerProps) {
+  const { getNodes } = useReactFlow();
+  return (
+    <ReactFlow
+      defaultNodes={nodes}
+      defaultEdges={edges}
+      fitView
+      fitViewOptions={{ padding: 0.2, includeHiddenNodes: true }}
+      nodesDraggable={draggable}
+      nodesConnectable={false}
+      elementsSelectable={draggable}
+      colorMode={theme}
+      proOptions={{ hideAttribution: true }}
+      onNodeDragStop={() => {
+        // getNodes() は xyflow internal store から「全ノード」を取得する
+        // 第 3 引数の nodes[] は drag されたものだけなので落とせない
+        onPositionsChange?.(extractPositions(getNodes()));
+      }}
+    >
+      <Background gap={16} />
+      <Controls showInteractive={false} />
+    </ReactFlow>
+  );
+}
+
 export function mountXyflow(parent: HTMLElement, options: MountOptions): MountHandle {
-  // Obsidian の code block container は CodeMirror embed widget 内で寸法が
-  // 0 に潰されることがあるため、内側に block 化した wrapper を新設して
-  // xyflow にはその wrapper を渡す。固定 px で書く（% は親に依存して 0 になる）。
   parent.empty();
   const wrapper = parent.createDiv();
   wrapper.style.cssText = [
@@ -53,25 +107,19 @@ export function mountXyflow(parent: HTMLElement, options: MountOptions): MountHa
 
   let currentNodes = options.nodes;
   let currentEdges = options.edges;
+  const draggable = !!options.onPositionsChange;
 
   const render = () => {
     root.render(
-      <ReactFlow
-        nodes={currentNodes}
-        edges={currentEdges}
-        onNodesChange={() => { /* read-only */ }}
-        onEdgesChange={() => { /* read-only */ }}
-        fitView
-        fitViewOptions={{ padding: 0.2, includeHiddenNodes: true }}
-        nodesDraggable={false}
-        nodesConnectable={false}
-        elementsSelectable={false}
-        colorMode={options.theme === 'dark' ? 'dark' : 'light'}
-        proOptions={{ hideAttribution: true }}
-      >
-        <Background gap={16} />
-        <Controls showInteractive={false} />
-      </ReactFlow>,
+      <ReactFlowProvider>
+        <CanvasInner
+          nodes={currentNodes}
+          edges={currentEdges}
+          theme={options.theme === 'dark' ? 'dark' : 'light'}
+          draggable={draggable}
+          onPositionsChange={options.onPositionsChange}
+        />
+      </ReactFlowProvider>,
     );
   };
 
