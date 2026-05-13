@@ -18,7 +18,7 @@
  *   7. cleanup を MarkdownRenderChild に登録
  */
 
-import { App, MarkdownPostProcessorContext, MarkdownRenderChild, Notice } from 'obsidian';
+import { App, MarkdownPostProcessorContext, MarkdownRenderChild, MarkdownRenderer, Notice } from 'obsidian';
 import {
   parseMermaid,
   extractPositionComments,
@@ -41,6 +41,19 @@ export async function renderMmEditableFlow(
   el: HTMLElement,
   ctx: MarkdownPostProcessorContext,
 ): Promise<void> {
+  // Live Preview (CodeMirror widget) では xyflow を mount しない。
+  // 理由:
+  //   - widget の sizing 制約で xyflow がうまく動かない
+  //   - source/preview の両方に React tree が生まれて preview render が滞る
+  //   - 編集 GUI は Reading view 専用で十分（Live Preview ではテキスト直編集が早い）
+  if (el.closest('.markdown-source-view')) {
+    el.empty();
+    const note = el.createDiv({ cls: 'mm-edit-hint' });
+    note.textContent = '✏️ GUI 編集は読み取りビュー (cmd+e) で利用できます';
+    note.style.cssText = 'padding:8px;color:var(--text-muted);font-size:12px;';
+    return;
+  }
+
   const parseResult = parseMermaid(source);
   if (!parseResult.ok) {
     el.empty();
@@ -57,12 +70,11 @@ export async function renderMmEditableFlow(
 
   const rfNodes = graph.nodes.map((n: MmNode) => ({
     id: n.id,
+    type: 'mm', // Stage 3d: custom node でラベルを Obsidian DOM 化
     position: initialPositions[n.id] ?? { x: 0, y: 0 },
     data: { label: (n.label ?? n.id).replace(/^"|"$/g, '') },
-    // xyflow v12: 描画と edge 端点計算の両方を成立させるには
-    // style + measured の両方を渡す必要がある（v12 の controlled state 仕様）
-    style: { width: 140, height: 56 },
-    measured: { width: 140, height: 56 },
+    style: { width: 160, height: 56 },
+    measured: { width: 160, height: 56 },
   }));
   const rfEdges = graph.edges.map((e: MmEdge) => ({
     id: e.id,
@@ -101,11 +113,24 @@ export async function renderMmEditableFlow(
 
   // --------------------------------------------------------------------------
 
+  // Stage 3d: ラベルを Obsidian の MarkdownRenderer で描画する callback
+  // 各 xyflow ノードで個別に呼ばれ、Obsidian DOM (`.internal-link` 等) が生まれる
+  // ctx.addChild は使わない（各 useEffect 起動で重複登録されると preview render が
+  // 不安定になる挙動を確認、child のライフサイクルは React 側 cleanup に任せる）
+  const renderLabel = (label: string, target: HTMLElement): (() => void) => {
+    const child = new MarkdownRenderChild(target);
+    void MarkdownRenderer.render(app, label, target, ctx.sourcePath, child);
+    return () => {
+      child.unload();
+    };
+  };
+
   const handle = mountXyflow(el, {
     nodes: rfNodes,
     edges: rfEdges,
     theme,
     onPositionsChange: scheduleWriteBack,
+    renderLabel,
   });
 
   const child = new MarkdownRenderChild(el);
