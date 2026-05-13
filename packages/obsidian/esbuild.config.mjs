@@ -1,5 +1,5 @@
 import esbuild from 'esbuild';
-import { copyFileSync, mkdirSync, existsSync } from 'node:fs';
+import { copyFileSync, mkdirSync, existsSync, renameSync } from 'node:fs';
 import { dirname } from 'node:path';
 
 const production = process.argv.includes('production');
@@ -27,6 +27,8 @@ const ctx = await esbuild.context({
   format: 'cjs',
   target: 'es2020',
   platform: 'browser',
+  jsx: 'automatic',
+  loader: { '.tsx': 'tsx' },
   outfile: `${PLUGIN_OUT_DIR}/main.js`,
   sourcemap: production ? false : 'inline',
   minify: production,
@@ -37,6 +39,20 @@ const ctx = await esbuild.context({
       name: 'copy-manifest',
       setup(build) {
         build.onStart(() => copyManifest());
+      },
+    },
+    {
+      // esbuild は main.ts に import された CSS をエントリ名の `main.css` で出力する。
+      // Obsidian はプラグインフォルダの `styles.css` を自動ロードするので、rename する。
+      name: 'rename-css',
+      setup(build) {
+        build.onEnd(() => {
+          const src = `${PLUGIN_OUT_DIR}/main.css`;
+          const dst = `${PLUGIN_OUT_DIR}/styles.css`;
+          if (existsSync(src)) {
+            try { renameSync(src, dst); } catch {}
+          }
+        });
       },
     },
   ],

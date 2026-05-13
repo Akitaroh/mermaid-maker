@@ -62,7 +62,32 @@ importers:
         version: 2.1.9(@types/node@22.19.18)(jsdom@29.1.1)
 
   packages/obsidian:
+    dependencies:
+      '@akitaroh/mermaid-core':
+        specifier: workspace:*
+        version: link:../core
+      '@xyflow/react':
+        specifier: ^12.3.5
+        version: 12.10.2(@types/react@18.3.28)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      dagre:
+        specifier: ^0.8.5
+        version: 0.8.5
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+      react-dom:
+        specifier: ^18.3.1
+        version: 18.3.1(react@18.3.1)
     devDependencies:
+      '@types/dagre':
+        specifier: ^0.7.52
+        version: 0.7.54
+      '@types/react':
+        specifier: ^18.3.12
+        version: 18.3.28
+      '@types/react-dom':
+        specifier: ^18.3.1
+        version: 18.3.7(@types/react@18.3.28)
       esbuild:
         specifier: ^0.23.0
         version: 0.23.1

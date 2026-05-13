@@ -1,5 +1,15 @@
 import { Notice, Plugin } from 'obsidian';
 import { renderMmCodeBlock } from './arrows/mm-codeblock-render.js';
+import { renderMmEditableFlow } from './arrows/mm-editable-flow.js';
+
+/**
+ * source の先頭行に `%% editable %%` または `%%editable%%` があれば editable mode。
+ * mermaid のコメント構文に乗るので mermaid との互換も保てる。
+ */
+function isEditable(source: string): boolean {
+  const firstFew = source.split('\n').slice(0, 3).join('\n');
+  return /%%\s*editable\s*%%/.test(firstFew);
+}
 
 /**
  * MermaidMaker Obsidian plugin — Stage 2b: HTML-label-injection (Mehrmaid-style).
@@ -25,7 +35,11 @@ export default class MermaidMakerPlugin extends Plugin {
     this.app.workspace.onLayoutReady(() => {
       this.registerMarkdownCodeBlockProcessor('mermaid-maker', async (source, el, ctx) => {
         try {
-          await renderMmCodeBlock(this.app, source, el, ctx);
+          if (isEditable(source)) {
+            await renderMmEditableFlow(this.app, source, el, ctx);
+          } else {
+            await renderMmCodeBlock(this.app, source, el, ctx);
+          }
         } catch (e) {
           console.error('[mermaid-maker] render error', e);
           new Notice('MermaidMaker: failed to render diagram');
