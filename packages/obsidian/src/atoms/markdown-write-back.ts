@@ -46,6 +46,22 @@ export function writeBackMmCodeBlock(
   // 末尾改行を必ず確保
   const payload = newSource.endsWith('\n') ? newSource : newSource + '\n';
 
+  // ctx が stale な場合、lineEnd がエディタの行数を超えていることがある
+  // (前回の writeBack でファイルが縮んだ後、古い ctx を使うケース)
+  // 範囲外なら writeBack を諦める（次の render で新 ctx が来るので問題ない）
+  const lastLine = editor.lineCount() - 1;
+  if (info.lineEnd > lastLine || info.lineStart > lastLine) {
+    return { ok: false, reason: 'stale-section-info-out-of-range' };
+  }
+
+  // 範囲内の content が "mermaid-maker" code block か検証 (誤書換防止)
+  if (info.lineStart >= 0) {
+    const openLine = editor.getLine(info.lineStart);
+    if (!openLine.includes('```mermaid-maker')) {
+      return { ok: false, reason: 'section-fence-mismatch' };
+    }
+  }
+
   try {
     editor.replaceRange(
       payload,

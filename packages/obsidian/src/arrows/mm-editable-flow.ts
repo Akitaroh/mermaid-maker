@@ -1,28 +1,31 @@
 /**
- * Arrow-MmEditableFlow (Stage 3b)
+ * Arrow-MmEditableFlow (Stage 3a〜3d)
  *
- * `mermaid-maker %%editable%%` block を xyflow キャンバスとして描画 +
- * ノードドラッグを debounce 書戻し。
+ * `mermaid-maker %%editable%%` block を xyflow キャンバスとして描画。
+ * - Stage 3a: read-only マウント
+ * - Stage 3b: drag → write-back
+ * - Stage 3c: ノード CRUD (追加/削除/ラベル編集/エッジ追加削除) → write-back
+ * - Stage 3d: xyflow ノード内ラベルを Obsidian MarkdownRenderer で描画
  *
- * Flow:
- *   1. source を Atom-MermaidParser で graph に変換
- *   2. Atom-PositionStore で source 中のコメント座標を抽出
- *   3. Atom-DagreLayout で未指定座標を補完
- *   4. graph + positions を xyflow Node[] / Edge[] に変換
- *   5. Atom-XyflowMounter で React マウント
- *      onPositionsChange を渡してドラッグを受ける
- *   6. ドラッグ毎に debounce 500ms で:
- *      a. emitMermaid(graph, latestPositions)
- *      b. `%%editable%%\n` を prepend
- *      c. Atom-MarkdownWriteBack で editor に書戻す
- *   7. cleanup を MarkdownRenderChild に登録
+ * 設計判断:
+ * - xyflow を編集セッションの source of truth とする
+ * - 変更は単一 onChange callback で集約、Arrow が rfToGraph 変換 + writeback
+ * - Live Preview (CodeMirror widget) では mount せず、Reading view 専用
  */
 
-import { App, MarkdownPostProcessorContext, MarkdownRenderChild, MarkdownRenderer, Notice } from 'obsidian';
+import {
+  App,
+  MarkdownPostProcessorContext,
+  MarkdownRenderChild,
+  MarkdownRenderer,
+  Notice,
+} from 'obsidian';
+import type { Edge as RFEdge, Node as RFNode } from '@xyflow/react';
 import {
   parseMermaid,
   extractPositionComments,
   emitMermaid,
+  type Direction,
   type Graph,
   type Node as MmNode,
   type Edge as MmEdge,
@@ -31,9 +34,53 @@ import {
 import { fillMissingPositions } from '../atoms/dagre-layout.js';
 import { mountXyflow } from '../atoms/xyflow-mounter.js';
 import { writeBackMmCodeBlock } from '../atoms/markdown-write-back.js';
+import { openLabelEdit } from '../atoms/label-edit-modal.js';
 
 const WRITE_BACK_DEBOUNCE_MS = 500;
 const EDITABLE_FLAG_LINE = '%%editable%%';
+
+/**
+ * Mermaid syntax は box ノードを `A[label]` で表現する。label に `[`, `]`,
+ * `(`, `)`, `{`, `}`, `|` 等を含むとパーサが破綻するため、これらを含む場合は
+ * ダブルクォートで囲み、内部の `"` は HTML エンティティに置換する。
+ *
+ * 例: `[[X]]` → `"[[X]]"`
+ *     `a"b`   → `"a&quot;b"`
+ */
+function quoteLabelIfNeeded(label: string): string {
+  if (/[\[\](){}|"]/.test(label)) {
+    return `"${label.replace(/"/g, '&quot;')}"`;
+  }
+  return label;
+}
+
+/** xyflow の現状から Graph + PositionMap を再構築 */
+function rfToGraph(
+  direction: Direction,
+  rfNodes: RFNode[],
+  rfEdges: RFEdge[],
+): { graph: Graph; positions: PositionMap } {
+  return {
+    graph: {
+      direction,
+      nodes: rfNodes.map((n) => {
+        const raw = String((n.data as { label?: string })?.label ?? n.id);
+        return {
+          id: n.id,
+          label: quoteLabelIfNeeded(raw),
+          shape: 'box' as const,
+        };
+      }),
+      edges: rfEdges.map((e, i) => ({
+        id: e.id ?? `e${i}`,
+        source: e.source,
+        target: e.target,
+        label: (e.label as string | undefined) ?? undefined,
+      })),
+    },
+    positions: Object.fromEntries(rfNodes.map((n) => [n.id, { x: n.position.x, y: n.position.y }])),
+  };
+}
 
 export async function renderMmEditableFlow(
   app: App,
@@ -41,11 +88,7 @@ export async function renderMmEditableFlow(
   el: HTMLElement,
   ctx: MarkdownPostProcessorContext,
 ): Promise<void> {
-  // Live Preview (CodeMirror widget) では xyflow を mount しない。
-  // 理由:
-  //   - widget の sizing 制約で xyflow がうまく動かない
-  //   - source/preview の両方に React tree が生まれて preview render が滞る
-  //   - 編集 GUI は Reading view 専用で十分（Live Preview ではテキスト直編集が早い）
+  // Live Preview (CodeMirror widget) では xyflow を mount しない
   if (el.closest('.markdown-source-view')) {
     el.empty();
     const note = el.createDiv({ cls: 'mm-edit-hint' });
@@ -65,18 +108,19 @@ export async function renderMmEditableFlow(
   }
 
   const graph: Graph = parseResult.graph;
+  const initialDirection: Direction = graph.direction;
   const stored: PositionMap = extractPositionComments(source);
   const initialPositions = fillMissingPositions(graph, stored, graph.direction);
 
-  const rfNodes = graph.nodes.map((n: MmNode) => ({
+  const rfNodes: RFNode[] = graph.nodes.map((n: MmNode) => ({
     id: n.id,
-    type: 'mm', // Stage 3d: custom node でラベルを Obsidian DOM 化
+    type: 'mm',
     position: initialPositions[n.id] ?? { x: 0, y: 0 },
     data: { label: (n.label ?? n.id).replace(/^"|"$/g, '') },
     style: { width: 160, height: 56 },
     measured: { width: 160, height: 56 },
   }));
-  const rfEdges = graph.edges.map((e: MmEdge) => ({
+  const rfEdges: RFEdge[] = graph.edges.map((e: MmEdge) => ({
     id: e.id,
     source: e.source,
     target: e.target,
@@ -85,38 +129,52 @@ export async function renderMmEditableFlow(
 
   const theme: 'light' | 'dark' = document.body.classList.contains('theme-dark') ? 'dark' : 'light';
 
-  // --- Stage 3b: debounce write-back ----------------------------------------
+  // ---- write-back ----------------------------------------------------------
   let pendingTimer: number | null = null;
+  let latestGraph: Graph = graph;
   let latestPositions: PositionMap = initialPositions;
 
   const flush = () => {
     pendingTimer = null;
-    const newSource = emitMermaid(graph, latestPositions);
-    // %%editable%% を保持しないと次回 render で Stage 2b 分岐に戻ってしまう
-    const withFlag = `${EDITABLE_FLAG_LINE}\n${newSource}`;
-    const result = writeBackMmCodeBlock(app, ctx, el, withFlag);
-    if (!result.ok) {
-      console.warn('[mermaid-maker] write-back failed:', result.reason);
-      // active-file-mismatch / not-markdown-view は静かに諦める
-      // 想定外のものだけ Notice
-      if (result.reason !== 'active-file-mismatch' && result.reason !== 'not-markdown-view') {
-        new Notice(`MermaidMaker write-back failed: ${result.reason}`);
+    try {
+      // 安全網: 元のグラフが空でないのに突如空になっていたら、データ破壊の兆候
+      // （前回 writeback で壊れた mermaid を parse → 空 graph → このまま書くと
+      // ユーザの作業が全消失する）。書戻しを諦めて警告を出すだけにする
+      if (
+        graph.nodes.length > 0 &&
+        latestGraph.nodes.length === 0 &&
+        latestGraph.edges.length === 0
+      ) {
+        console.warn('[mermaid-maker] aborted writeback: latest graph is empty');
+        return;
       }
+      const newSource = emitMermaid(latestGraph, latestPositions);
+      const withFlag = `${EDITABLE_FLAG_LINE}\n${newSource}`;
+      const result = writeBackMmCodeBlock(app, ctx, el, withFlag);
+      if (!result.ok) {
+        if (result.reason !== 'active-file-mismatch' && result.reason !== 'not-markdown-view') {
+          console.warn('[mermaid-maker] write-back failed:', result.reason);
+        }
+      }
+    } catch (e) {
+      console.error('[mermaid-maker] flush error', e);
+      new Notice(`MermaidMaker error: ${(e as Error)?.message ?? e}`);
     }
   };
 
-  const scheduleWriteBack = (positions: PositionMap) => {
-    latestPositions = positions;
+  const scheduleWriteBack = () => {
     if (pendingTimer !== null) window.clearTimeout(pendingTimer);
     pendingTimer = window.setTimeout(flush, WRITE_BACK_DEBOUNCE_MS);
   };
 
-  // --------------------------------------------------------------------------
+  const onChange = (nodes: RFNode[], edges: RFEdge[]) => {
+    const { graph: g, positions: p } = rfToGraph(initialDirection, nodes, edges);
+    latestGraph = g;
+    latestPositions = p;
+    scheduleWriteBack();
+  };
 
-  // Stage 3d: ラベルを Obsidian の MarkdownRenderer で描画する callback
-  // 各 xyflow ノードで個別に呼ばれ、Obsidian DOM (`.internal-link` 等) が生まれる
-  // ctx.addChild は使わない（各 useEffect 起動で重複登録されると preview render が
-  // 不安定になる挙動を確認、child のライフサイクルは React 側 cleanup に任せる）
+  // ---- renderLabel (Stage 3d) ---------------------------------------------
   const renderLabel = (label: string, target: HTMLElement): (() => void) => {
     const child = new MarkdownRenderChild(target);
     void MarkdownRenderer.render(app, label, target, ctx.sourcePath, child);
@@ -125,19 +183,25 @@ export async function renderMmEditableFlow(
     };
   };
 
+  // --------------------------------------------------------------------------
   const handle = mountXyflow(el, {
     nodes: rfNodes,
     edges: rfEdges,
     theme,
-    onPositionsChange: scheduleWriteBack,
+    onChange,
     renderLabel,
+    onEditLabel: (current, onSubmit) => openLabelEdit(app, current, onSubmit),
   });
 
   const child = new MarkdownRenderChild(el);
   child.onunload = () => {
+    // 重要: unload 時に flush() を呼ばない。
+    // unload は Obsidian の re-render で起きるが、その時点で ctx は stale で
+    // 書戻すと範囲外エラーで editor 状態が壊れる（debounce 中の編集は破棄して
+    // OK、次の mount で新しい ctx から再開する）
     if (pendingTimer !== null) {
       window.clearTimeout(pendingTimer);
-      flush(); // unmount 直前に最後の書戻しを保証
+      pendingTimer = null;
     }
     handle.unmount();
   };
